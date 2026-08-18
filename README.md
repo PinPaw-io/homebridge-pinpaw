@@ -41,11 +41,18 @@ where the pet is a proper `device_tracker` with a map.
 
 ## Installation
 
+> Not published to npm yet, so the plugin browser in the Homebridge UI will not
+> find it and `npm install -g homebridge-pinpaw` will not resolve. Until it is
+> published, install from source:
+
 ```bash
-npm install -g homebridge-pinpaw
+git clone https://github.com/PinPaw-io/homebridge-pinpaw.git
+cd homebridge-pinpaw
+npm install && npm run build && npm link
 ```
 
-Or search for **PinPaw** in the Homebridge UI plugin browser.
+Once it is on npm, the usual `npm install -g homebridge-pinpaw` or a search for
+**PinPaw** in the Homebridge UI plugin browser will be the way in.
 
 ### Getting a token
 
