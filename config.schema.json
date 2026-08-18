@@ -1,0 +1,88 @@
+{
+  "pluginAlias": "PinPaw",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Exposes your PinPaw GPS pet trackers to HomeKit as battery, at-home and motion sensors.",
+  "footerDisplay": "Create an API token in the PinPaw app under **Settings > API tokens** (requires app 1.6.0 or newer).",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "PinPaw",
+        "required": true
+      },
+      "apiToken": {
+        "title": "API token",
+        "type": "string",
+        "required": true,
+        "description": "Personal access token from the PinPaw app. Starts with ppw_pat_."
+      },
+      "pollInterval": {
+        "title": "Poll interval (seconds)",
+        "type": "integer",
+        "default": 60,
+        "minimum": 15,
+        "maximum": 3600,
+        "description": "How often to ask PinPaw for fresh data. Values below 15 are raised to 15."
+      },
+      "home": {
+        "title": "Home location",
+        "type": "object",
+        "description": "Needed for the At Home sensor. Leave empty to skip it.",
+        "properties": {
+          "latitude": {
+            "title": "Latitude",
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          },
+          "radius": {
+            "title": "Radius (metres)",
+            "type": "integer",
+            "default": 100,
+            "minimum": 1,
+            "description": "How far from the coordinates still counts as home."
+          }
+        }
+      },
+      "exposeMotion": {
+        "title": "Expose the motion sensor",
+        "type": "boolean",
+        "default": true,
+        "description": "Uncheck if you do not want a motion sensor per pet in the Home app."
+      },
+      "baseUrl": {
+        "title": "API base URL",
+        "type": "string",
+        "default": "https://api.pinpaw.io",
+        "description": "Only change this if you were told to."
+      }
+    }
+  },
+  "layout": [
+    "apiToken",
+    "pollInterval",
+    {
+      "type": "fieldset",
+      "title": "Home location",
+      "expandable": true,
+      "expanded": true,
+      "items": ["home.latitude", "home.longitude", "home.radius"]
+    },
+    {
+      "type": "fieldset",
+      "title": "Advanced",
+      "expandable": true,
+      "expanded": false,
+      "items": ["exposeMotion", "baseUrl"]
+    }
+  ]
+}
