@@ -120,4 +120,63 @@ describe('buildPetState', () => {
   it('normalises an empty address to null', () => {
     assert.equal(buildPetState(pet({ latestPosition: { address: '' } }), HOME).address, null);
   });
+
+  it('carries the modes through', () => {
+    const state = buildPetState(
+      pet({
+        trackingMode: 'SAVING',
+        carMode: true,
+        walkRecordingMode: 'MANUAL',
+        walkActive: true,
+        lost: false,
+        deviceDisabled: false,
+      }),
+      HOME,
+    );
+    assert.equal(state.trackingMode, 'SAVING');
+    assert.equal(state.carMode, true);
+    assert.equal(state.walkRecordingMode, 'MANUAL');
+    assert.equal(state.walkActive, true);
+    assert.equal(state.lost, false);
+    assert.equal(state.deviceDisabled, false);
+  });
+
+  it('treats a mode it does not recognise as unreported', () => {
+    // A value added server-side must not make a switch claim a state it cannot
+    // reason about; null leaves the characteristic untouched.
+    const state = buildPetState(
+      pet({ trackingMode: 'HIBERNATING', walkRecordingMode: 'SEMI' }),
+      HOME,
+    );
+    assert.equal(state.trackingMode, null);
+    assert.equal(state.walkRecordingMode, null);
+  });
+
+  it('leaves the modes null when the backend omits them', () => {
+    const state = buildPetState(pet(), HOME);
+    assert.equal(state.trackingMode, null);
+    assert.equal(state.carMode, null);
+    assert.equal(state.walkActive, null);
+    assert.deepEqual(state.availableCommands, []);
+  });
+
+  it('takes light and sound from the device state, not the pet', () => {
+    const state = buildPetState(pet(), HOME, { petId: 7, lightSwitch: true, soundSwitch: false });
+    assert.equal(state.led, true);
+    assert.equal(state.sound, false);
+  });
+
+  it('reports light and sound unknown without a device state', () => {
+    const state = buildPetState(pet(), HOME);
+    assert.equal(state.led, null);
+    assert.equal(state.sound, null);
+  });
+
+  it('keeps only string entries from availableCommands', () => {
+    const state = buildPetState(
+      pet({ availableCommands: ['LED_SWITCH_ON', 7, null] as unknown as string[] }),
+      HOME,
+    );
+    assert.deepEqual(state.availableCommands, ['LED_SWITCH_ON']);
+  });
 });

@@ -13,6 +13,7 @@ export interface PinPawConfig {
   pollInterval: number;
   home: HomeLocation | null;
   exposeMotion: boolean;
+  exposeControls: boolean;
 }
 
 export interface ParsedConfig {
@@ -70,9 +71,13 @@ export function parseConfig(raw: unknown): ParsedConfig {
   }
 
   const exposeMotion = source.exposeMotion !== false;
+  const exposeControls = source.exposeControls !== false;
 
   return {
-    config: errors.length > 0 ? null : { apiToken, baseUrl, pollInterval, home, exposeMotion },
+    config:
+      errors.length > 0
+        ? null
+        : { apiToken, baseUrl, pollInterval, home, exposeMotion, exposeControls },
     errors,
     warnings,
   };

@@ -11,6 +11,12 @@ export interface LatestPosition {
   course?: number | null;
 }
 
+/** The reporting schedule a tracker is on. */
+export type TrackingMode = 'TRACKING' | 'SAVING' | 'DAILY';
+
+/** Whether walks are detected automatically or started by hand. */
+export type WalkRecordingMode = 'AUTO' | 'MANUAL';
+
 export interface Pet {
   id: number;
   name?: string | null;
@@ -18,6 +24,24 @@ export interface Pet {
   trackingInterval?: number | null;
   deviceLastUpdate?: string | number | null;
   latestPosition?: LatestPosition | null;
+  trackingMode?: string | null;
+  carMode?: boolean | null;
+  walkRecordingMode?: string | null;
+  walkActive?: boolean | null;
+  lost?: boolean | null;
+  deviceDisabled?: boolean | null;
+  /** Command types the device's protocol has a template for. */
+  availableCommands?: string[] | null;
+}
+
+/**
+ * One row of GET /api/device-states/my-pets -- the tracker's last heartbeat.
+ * It is the only place the light and sound state lives; /api/pets omits it.
+ */
+export interface DeviceState {
+  petId?: number | null;
+  lightSwitch?: boolean | null;
+  soundSwitch?: boolean | null;
 }
 
 /** Where "home" is, for the at-home and distance calculations. */
@@ -47,4 +71,14 @@ export interface PetState {
   latitude: number | null;
   longitude: number | null;
   address: string | null;
+  trackingMode: TrackingMode | null;
+  carMode: boolean | null;
+  walkRecordingMode: WalkRecordingMode | null;
+  walkActive: boolean | null;
+  lost: boolean | null;
+  deviceDisabled: boolean | null;
+  led: boolean | null;
+  sound: boolean | null;
+  /** Which controls the tracker's protocol supports; drives which services exist. */
+  availableCommands: string[];
 }

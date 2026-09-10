@@ -2,21 +2,23 @@
 
 [Homebridge](https://homebridge.io) plugin for the [PinPaw](https://pinpaw.io)
 GPS pet tracker. Puts each of your pets into HomeKit as a battery, an at-home
-sensor and a motion sensor, so the Home app can show them and automations can
-trigger on them.
+sensor and a motion sensor, plus switches for the tracker's modes and its light
+and sound, so the Home app can show them and automations can trigger on them.
 
 Companion to the [Home Assistant integration](https://github.com/PinPaw-io/homeassistant-pinpaw)
 and the [Fibaro HC3 QuickApp](https://github.com/PinPaw-io/fibaro-pinpaw).
 
 > **Status: experimental. Not yet verified against a live Homebridge install.**
 > The API client, config handling, state mapping and the HomeKit wiring are
-> covered by 65 automated tests, including a stubbed HAP layer that checks which
+> covered by 86 automated tests, including a stubbed HAP layer that checks which
 > characteristics get pushed. It has not yet been run against a real Homebridge
 > instance paired to a real Home app. Please report what you hit.
 
 ## What shows up in HomeKit
 
-One accessory per pet, with three services:
+One accessory per pet.
+
+### Sensors
 
 | Service | What it reports |
 | --- | --- |
@@ -26,6 +28,37 @@ One accessory per pet, with three services:
 
 When the tracker goes offline the last known values stay put, but the sensors
 are marked inactive so the Home app does not imply the reading is live.
+
+### Switches
+
+| Switch | What it does |
+| --- | --- |
+| Car Mode | Suspends walk recording while the pet is riding along, so a drive does not land in the history as a very fast walk |
+| Manual Walk Mode | On for manual walks, off for automatic detection |
+| Walk Recording | Starts and stops a walk. Only works in manual mode |
+| Live Tracking | On for live tracking, off for the daily reporting schedule |
+| Sleeping Mode | Puts the tracker to sleep to save battery. Momentary: it flicks back off by itself |
+| Light | The tracker's locator light |
+| Sound | The tracker's locator buzzer |
+
+Car Mode, Manual Walk Mode and Walk Recording are backend state, so every
+tracker gets them. The rest are device commands and only appear for trackers
+whose protocol actually supports them. Set `exposeControls` to `false` to drop
+all of them and keep the Home app to sensors only.
+
+**Sleeping Mode is one-way.** Waking a sleeping tracker happens over Bluetooth
+with the phone next to it and cannot be done through the API, so the switch is
+momentary rather than a state you can turn off. Turning it off does nothing on
+purpose.
+
+**Walk Recording only works in manual mode.** In automatic mode the backend
+refuses it, because recording is always on and not yours to control there. The
+plugin says so in the log rather than forwarding a request it knows will fail;
+the Home app shows the tile as not responding.
+
+**Light and Sound lag a little.** Their state comes from the tracker's last
+heartbeat (`GET /api/device-states/my-pets`), which is polled alongside the pet
+list, but only when a tracker on the account advertises those commands.
 
 ### Why there is no map or distance
 
@@ -69,7 +102,8 @@ The Homebridge UI renders a form for all of this. The raw block looks like:
         "longitude": 21.0122,
         "radius": 100
       },
-      "exposeMotion": true
+      "exposeMotion": true,
+      "exposeControls": true
     }
   ]
 }
@@ -83,6 +117,7 @@ The Homebridge UI renders a form for all of this. The raw block looks like:
 | `home.longitude` | *(none)* | |
 | `home.radius` | `100` | How many metres from those coordinates still counts as home |
 | `exposeMotion` | `true` | Set to `false` to drop the per-pet motion sensor |
+| `exposeControls` | `true` | Set to `false` to drop every mode, light and sound switch |
 | `baseUrl` | `https://api.pinpaw.io` | Only change if you were told to |
 
 A missing or malformed token is a fatal config error: the plugin logs what is
@@ -99,7 +134,7 @@ read it from; Homebridge has no equivalent, so there is nothing to inherit.
 
 ```bash
 npm install
-npm test          # 65 tests, no network and no Homebridge needed
+npm test          # 86 tests, no network and no Homebridge needed
 npm run lint
 npm run build
 ```
