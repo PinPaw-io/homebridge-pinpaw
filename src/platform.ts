@@ -11,12 +11,15 @@ import type {
 import { PinPawAccessory, type PinPawAccessoryContext } from './accessory.js';
 import { PinPawApi, PinPawAuthError } from './api.js';
 import { parseConfig, type PinPawConfig } from './config.js';
-import { PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
+import { CMD_LED_ON, CMD_SOUND_ON, PLATFORM_NAME, PLUGIN_NAME } from './settings.js';
 import { buildPetState } from './state.js';
-import type { Pet } from './types.js';
+import type { DeviceState, Pet } from './types.js';
 
 /** Consecutive failures tolerated before the log stops being polite about it. */
 const FAILURES_BEFORE_ERROR = 3;
+
+/** Commands whose state only /api/device-states/my-pets reports. */
+const DEVICE_STATE_COMMANDS = [CMD_LED_ON, CMD_SOUND_ON];
 
 export class PinPawPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
@@ -27,6 +30,7 @@ export class PinPawPlatform implements DynamicPlatformPlugin {
   private readonly handlers = new Map<string, PinPawAccessory>();
 
   private client: PinPawApi | undefined;
+  private deviceStates = new Map<number, DeviceState>();
   private timer: NodeJS.Timeout | undefined;
   private failures = 0;
   private started = false;
@@ -89,6 +93,7 @@ export class PinPawPlatform implements DynamicPlatformPlugin {
     try {
       const pets = await this.client.getPets();
       this.failures = 0;
+      await this.refreshDeviceStates(pets);
       this.sync(pets);
     } catch (error) {
       if (error instanceof PinPawAuthError) {
@@ -110,11 +115,71 @@ export class PinPawPlatform implements DynamicPlatformPlugin {
     }
   }
 
+  /**
+   * Pull the light and sound state, which /api/pets does not carry.
+   *
+   * Skipped entirely unless a tracker on the account actually advertises those
+   * commands, so accounts that cannot use them pay no second request per poll.
+   * A failure here is not fatal -- the pet data is already in hand, and only
+   * the two switches go stale until the next poll.
+   */
+  private async refreshDeviceStates(pets: Pet[]): Promise<void> {
+    const wanted = pets.some((pet) =>
+      DEVICE_STATE_COMMANDS.some((command) => pet.availableCommands?.includes(command)),
+    );
+    if (!wanted || !this.client) {
+      this.deviceStates.clear();
+      return;
+    }
+
+    try {
+      const states = await this.client.getDeviceStates();
+      this.deviceStates = new Map(
+        states
+          .filter((state): state is DeviceState & { petId: number } =>
+            typeof state.petId === 'number',
+          )
+          .map((state) => [state.petId, state]),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log.debug(`PinPaw device states unavailable: ${message}`);
+    }
+  }
+
+  /**
+   * Run one control write on behalf of an accessory, then re-poll so HomeKit
+   * settles on what the backend actually did rather than on what was asked.
+   *
+   * Errors propagate: HomeKit turns a rejected write into "No Response" on the
+   * tile, which is the honest outcome when the backend refused.
+   */
+  async control(label: string, action: (client: PinPawApi) => Promise<void>): Promise<void> {
+    if (!this.client) {
+      throw new Error('PinPaw is not configured');
+    }
+
+    try {
+      await action(this.client);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.log.error(`PinPaw: ${label} failed: ${message}`);
+      throw error;
+    }
+
+    this.log.debug(`PinPaw: ${label}`);
+    await this.poll();
+  }
+
   private sync(pets: Pet[]): void {
     const seen = new Set<string>();
 
     for (const pet of pets) {
-      const state = buildPetState(pet, this.pluginConfig.home);
+      const state = buildPetState(
+        pet,
+        this.pluginConfig.home,
+        this.deviceStates.get(pet.id) ?? null,
+      );
       const uuid = this.api.hap.uuid.generate(`${PLUGIN_NAME}:${pet.id}`);
       seen.add(uuid);
 
@@ -134,7 +199,7 @@ export class PinPawPlatform implements DynamicPlatformPlugin {
 
       let handler = this.handlers.get(uuid);
       if (!handler) {
-        handler = new PinPawAccessory(this, accessory);
+        handler = new PinPawAccessory(this, accessory, state);
         this.handlers.set(uuid, handler);
       }
       handler.update(state);

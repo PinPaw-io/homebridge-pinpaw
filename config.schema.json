@@ -2,7 +2,7 @@
   "pluginAlias": "PinPaw",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "Exposes your PinPaw GPS pet trackers to HomeKit as battery, at-home and motion sensors.",
+  "headerDisplay": "Exposes your PinPaw GPS pet trackers to HomeKit: battery, at-home and motion sensors, plus switches for car mode, walk recording, live tracking, sleeping mode, light and sound.",
   "footerDisplay": "Create an API token in the PinPaw app under **Settings > API tokens** (requires app 1.6.0 or newer).",
   "schema": {
     "type": "object",
@@ -59,6 +59,12 @@
         "default": true,
         "description": "Uncheck if you do not want a motion sensor per pet in the Home app."
       },
+      "exposeControls": {
+        "title": "Expose the mode switches",
+        "type": "boolean",
+        "default": true,
+        "description": "Adds switches for car mode, walk recording, live tracking, sleeping mode, light and sound. Uncheck to keep the Home app to sensors only. Light, sound, live tracking and sleeping mode only appear for trackers that support them."
+      },
       "baseUrl": {
         "title": "API base URL",
         "type": "string",
@@ -75,14 +81,22 @@
       "title": "Home location",
       "expandable": true,
       "expanded": true,
-      "items": ["home.latitude", "home.longitude", "home.radius"]
+      "items": [
+        "home.latitude",
+        "home.longitude",
+        "home.radius"
+      ]
     },
     {
       "type": "fieldset",
       "title": "Advanced",
       "expandable": true,
       "expanded": false,
-      "items": ["exposeMotion", "baseUrl"]
+      "items": [
+        "exposeMotion",
+        "exposeControls",
+        "baseUrl"
+      ]
     }
   ]
 }

@@ -1,6 +1,13 @@
 import { distanceMetres } from './geo.js';
 import { LOW_BATTERY_THRESHOLD } from './settings.js';
-import type { HomeLocation, Pet, PetState } from './types.js';
+import type {
+  DeviceState,
+  HomeLocation,
+  Pet,
+  PetState,
+  TrackingMode,
+  WalkRecordingMode,
+} from './types.js';
 
 const asNumber = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -8,13 +15,28 @@ const asNumber = (value: unknown): number | null =>
 const asBoolean = (value: unknown): boolean | null =>
   typeof value === 'boolean' ? value : null;
 
+const TRACKING_MODES: readonly string[] = ['TRACKING', 'SAVING', 'DAILY'];
+const WALK_MODES: readonly string[] = ['AUTO', 'MANUAL'];
+
+/**
+ * Accept an enum value only if the backend sent one we recognise. An unknown
+ * mode is treated as "not reported" rather than being passed through, so a
+ * value added server-side cannot make a switch claim a state it does not know.
+ */
+const asEnum = <T extends string>(value: unknown, allowed: readonly string[]): T | null =>
+  typeof value === 'string' && allowed.includes(value) ? (value as T) : null;
+
 /**
  * Flatten one pet from the API into the shape the accessory consumes.
  *
  * Pure on purpose: all the interesting decisions live here, so they can be
  * tested without a HomeKit bridge in the loop.
  */
-export function buildPetState(pet: Pet, home: HomeLocation | null): PetState {
+export function buildPetState(
+  pet: Pet,
+  home: HomeLocation | null,
+  deviceState: DeviceState | null = null,
+): PetState {
   const position = pet.latestPosition ?? {};
 
   const latitude = asNumber(position.latitude);
@@ -52,5 +74,16 @@ export function buildPetState(pet: Pet, home: HomeLocation | null): PetState {
     address: typeof position.address === 'string' && position.address !== ''
       ? position.address
       : null,
+    trackingMode: asEnum<TrackingMode>(pet.trackingMode, TRACKING_MODES),
+    carMode: asBoolean(pet.carMode),
+    walkRecordingMode: asEnum<WalkRecordingMode>(pet.walkRecordingMode, WALK_MODES),
+    walkActive: asBoolean(pet.walkActive),
+    lost: asBoolean(pet.lost),
+    deviceDisabled: asBoolean(pet.deviceDisabled),
+    led: asBoolean(deviceState?.lightSwitch),
+    sound: asBoolean(deviceState?.soundSwitch),
+    availableCommands: Array.isArray(pet.availableCommands)
+      ? pet.availableCommands.filter((command): command is string => typeof command === 'string')
+      : [],
   };
 }

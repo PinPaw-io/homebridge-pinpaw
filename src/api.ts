@@ -1,5 +1,5 @@
 import { TOKEN_PREFIX } from './settings.js';
-import type { Pet } from './types.js';
+import type { DeviceState, Pet, WalkRecordingMode } from './types.js';
 
 /** Any failure talking to the API. */
 export class PinPawApiError extends Error {}
@@ -99,5 +99,37 @@ export class PinPawApi {
     await this.request('PUT', `/api/pets/${petId}/tracking-interval`, {
       trackingInterval: seconds,
     });
+  }
+
+  /**
+   * Last heartbeat for every visible pet. Separate from /api/pets because the
+   * light and sound state lives only here.
+   */
+  async getDeviceStates(): Promise<DeviceState[]> {
+    const states = await this.request<DeviceState[]>('GET', '/api/device-states/my-pets');
+    return Array.isArray(states) ? states : [];
+  }
+
+  /** Car mode: the pet is riding along, so no walk is recorded. */
+  async setCarMode(petId: number, enabled: boolean): Promise<void> {
+    await this.request('PUT', `/api/pets/${petId}/car-mode`, { enabled });
+  }
+
+  /** Switches walk recording between automatic detection and manual control. */
+  async setWalkRecordingMode(petId: number, mode: WalkRecordingMode): Promise<void> {
+    await this.request('PUT', `/api/pets/${petId}/walk-recording-mode`, { mode });
+  }
+
+  /** Starts or stops a walk. The backend refuses this outside manual mode. */
+  async setWalkActive(petId: number, enabled: boolean): Promise<void> {
+    await this.request('PUT', `/api/pets/${petId}/walk-active`, { enabled });
+  }
+
+  /**
+   * Sends a device command without waiting for the tracker to acknowledge it.
+   * The authoritative state arrives with the next poll.
+   */
+  async sendCommand(petId: number, command: string): Promise<void> {
+    await this.request('POST', `/api/pets/${petId}/commands/${command}`);
   }
 }
